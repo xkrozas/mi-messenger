@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Messenger P2P</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Librería PeerJS para conexión directa online -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+  <!-- PANTALLA 1: LOBBY DE ENTRADA -->
+  <div id="lobbyScreen" class="screen active">
+    <div class="lobby-card">
+      <div class="brand-header">
+        <div class="brand-icon">💬</div>
+        <h1>Web Messenger</h1>
+        <p>Habla en tiempo real con tus amigos sin intermediarios</p>
+      </div>
+
+      <div class="form-group">
+        <label for="usernameInput">Tu Apodo / Nombre:</label>
+        <input type="text" id="usernameInput" placeholder="Ej: Alex" maxlength="18">
+      </div>
+
+      <div class="form-group">
+        <label>Color de avatar:</label>
+        <div class="color-picker" id="colorPicker">
+          <span class="color-opt active" style="--c: #6366f1" data-color="#6366f1"></span>
+          <span class="color-opt" style="--c: #ec4899" data-color="#ec4899"></span>
+          <span class="color-opt" style="--c: #10b981" data-color="#10b981"></span>
+          <span class="color-opt" style="--c: #f59e0b" data-color="#f59e0b"></span>
+          <span class="color-opt" style="--c: #3b82f6" data-color="#3b82f6"></span>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button id="tabCreate" class="tab-btn active">Crear Sala</button>
+        <button id="tabJoin" class="tab-btn">Unirse a Sala</button>
+      </div>
+
+      <!-- Formulario Crear Sala -->
+      <div id="createSection" class="tab-content active">
+        <div class="form-group">
+          <label for="newRoomId">Nombre o Código de Sala:</label>
+          <div class="input-with-button">
+            <input type="text" id="newRoomId" placeholder="Ej: charla-amigos">
+            <button id="btnRandomRoom" type="button" title="Generar código aleatorio">🎲</button>
+          </div>
+        </div>
+        <button id="btnCreateRoom" class="btn primary-btn">Crear y Entrar</button>
+      </div>
+
+      <!-- Formulario Unirse a Sala -->
+      <div id="joinSection" class="tab-content">
+        <div class="form-group">
+          <label for="joinRoomId">Código de la Sala:</label>
+          <input type="text" id="joinRoomId" placeholder="Introduce el código de la sala">
+        </div>
+        <button id="btnJoinRoom" class="btn primary-btn">Conectar a Sala</button>
+      </div>
+
+      <p id="lobbyStatus" class="status-msg"></p>
+    </div>
+  </div>
+
+  <!-- PANTALLA 2: CHAT PRINCIPAL -->
+  <div id="chatScreen" class="screen">
+    <!-- Barra superior -->
+    <header class="chat-header">
+      <div class="room-info">
+        <span class="status-indicator"></span>
+        <div>
+          <h2 id="displayRoomName">Sala: ...</h2>
+          <small id="participantCount">1 participante</small>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btnShare" class="icon-btn" title="Copiar enlace de invitación">🔗 Invitar</button>
+        <button id="btnLeave" class="icon-btn danger" title="Salir de la sala">🚪 Salir</button>
+      </div>
+    </header>
+
+    <!-- Contenedor de mensajes -->
+    <main id="chatMessages" class="chat-messages">
+      <div class="system-bubble">Bienvenido a la sala. Comparte el código o enlace para comenzar.</div>
+    </main>
+
+    <!-- Indicador de 'escribiendo...' -->
+    <div id="typingIndicator" class="typing-indicator"></div>
+
+    <!-- Barra de envío -->
+    <footer class="chat-footer">
+      <label class="btn-attach" title="Enviar Imagen">
+        📷
+        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+      </label>
+      <input type="text" id="messageInput" placeholder="Escribe un mensaje..." autocomplete="off">
+      <button id="btnSend" class="btn-send" title="Enviar">➤</button>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

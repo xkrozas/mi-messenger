@@ -1,0 +1,364 @@
+:root {
+  --bg-main: #0b141a;
+  --bg-card: #111b21;
+  --bg-input: #202c33;
+  --bg-secondary: #222e35;
+  --accent: #00a884;
+  --accent-hover: #029070;
+  --msg-me: #005c4b;
+  --msg-other: #202c33;
+  --text-main: #e9edef;
+  --text-muted: #8696a0;
+  --border: #2a3942;
+  --radius: 12px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Pantallas */
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* --- LOBBY --- */
+#lobbyScreen {
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.lobby-card {
+  background: var(--bg-card);
+  padding: 30px;
+  border-radius: var(--radius);
+  max-width: 420px;
+  width: 100%;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.brand-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.brand-icon {
+  font-size: 40px;
+}
+
+.brand-header h1 {
+  font-size: 24px;
+  margin-top: 5px;
+}
+
+.brand-header p {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 15px;
+  outline: none;
+}
+
+input[type="text"]:focus {
+  border-color: var(--accent);
+}
+
+.input-with-button {
+  display: flex;
+  gap: 8px;
+}
+
+.input-with-button button {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 15px;
+  cursor: pointer;
+}
+
+.color-picker {
+  display: flex;
+  gap: 12px;
+}
+
+.color-opt {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.2s;
+}
+
+.color-opt.active {
+  border-color: #fff;
+  transform: scale(1.15);
+}
+
+.tabs {
+  display: flex;
+  margin: 15px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-weight: bold;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.primary-btn:hover {
+  background: var(--accent-hover);
+}
+
+.status-msg {
+  text-align: center;
+  font-size: 13px;
+  margin-top: 15px;
+  color: #f59e0b;
+}
+
+/* --- CHAT SCREEN --- */
+#chatScreen {
+  flex-direction: column;
+  max-width: 800px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.chat-header {
+  padding: 12px 18px;
+  background: var(--bg-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.room-info h2 {
+  font-size: 16px;
+}
+
+.room-info small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.icon-btn.danger {
+  background: #7f1d1d;
+  border-color: #991b1b;
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #0b141a url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" opacity="0.03"><path fill="%23fff" d="M30 0l30 30-30 30L0 30z"/></svg>');
+}
+
+/* Burbujas de mensajes */
+.msg-bubble {
+  max-width: 75%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  position: relative;
+  font-size: 14.5px;
+  word-break: break-word;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.msg-me {
+  align-self: flex-end;
+  background: var(--msg-me);
+  border-bottom-right-radius: 2px;
+}
+
+.msg-other {
+  align-self: flex-start;
+  background: var(--msg-other);
+  border-bottom-left-radius: 2px;
+}
+
+.msg-author {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+.msg-image {
+  max-width: 100%;
+  border-radius: 6px;
+  margin-top: 5px;
+  display: block;
+}
+
+.msg-time {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  float: right;
+  margin-top: 5px;
+  margin-left: 10px;
+}
+
+.system-bubble {
+  align-self: center;
+  background: rgba(32, 44, 51, 0.7);
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.typing-indicator {
+  height: 20px;
+  padding: 0 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Pie / Input */
+.chat-footer {
+  padding: 10px 15px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-attach {
+  font-size: 20px;
+  cursor: pointer;
+  padding: 5px;
+  user-select: none;
+}
+
+.chat-footer input {
+  flex: 1;
+}
+
+.btn-send {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-send:hover {
+  background: var(--accent-hover);
+}
