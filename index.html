@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Messenger P2P</title>
+  <title>Web Messenger Grupal P2P</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 
-  <!-- PANTALLA 1: LOBBY DE ENTRADA -->
+  <!-- PANTALLA 1: LOBBY -->
   <div id="lobbyScreen" class="screen active">
     <div class="lobby-card">
       <div class="brand-header">
         <div class="brand-icon">💬</div>
         <h1>Web Messenger</h1>
-        <p>Habla en tiempo real con tus amigos sin intermediarios</p>
+        <p>Chat y videollamadas grupales P2P sin servidores</p>
       </div>
 
       <div class="form-group">
@@ -73,18 +73,25 @@
         </div>
       </div>
       <div class="header-actions">
-        <!-- BOTONES DE LLAMADA Y PANTALLA -->
-        <button id="btnVoiceCall" class="icon-btn call-action-btn" title="Llamada de voz">📞</button>
-        <button id="btnVideoCall" class="icon-btn call-action-btn" title="Videollamada">📹</button>
-        <button id="btnScreenCall" class="icon-btn call-action-btn" title="Llamar compartiendo pantalla">🖥️</button>
-        
+        <button id="btnVoiceCall" class="icon-btn call-action-btn" title="Iniciar llamada grupal de voz">📞</button>
+        <button id="btnVideoCall" class="icon-btn call-action-btn" title="Iniciar videollamada grupal">📹</button>
+        <button id="btnScreenCall" class="icon-btn call-action-btn" title="Iniciar compartiendo pantalla">🖥️</button>
         <button id="btnShare" class="icon-btn" title="Copiar enlace de invitación">🔗 Invitar</button>
         <button id="btnLeave" class="icon-btn danger" title="Salir de la sala">🚪 Salir</button>
       </div>
     </header>
 
+    <!-- BANNER DE LLAMADA ACTIVA EN CURSO -->
+    <div id="activeCallBanner" class="active-call-banner">
+      <div class="banner-text">
+        <span class="pulse-dot"></span>
+        <span>Hay una llamada grupal en curso (<strong id="bannerCallCount">0</strong> en llamada)</span>
+      </div>
+      <button id="btnJoinActiveCall" class="btn-banner-join">Unirse a la llamada</button>
+    </div>
+
     <main id="chatMessages" class="chat-messages">
-      <div class="system-bubble">Bienvenido a la sala. Comparte el código o enlace para comenzar.</div>
+      <div class="system-bubble">Bienvenido a la sala. Invita a tus amigos con el botón superior.</div>
     </main>
 
     <div id="typingIndicator" class="typing-indicator"></div>
@@ -99,31 +106,31 @@
     </footer>
   </div>
 
-  <!-- MODAL DE LLAMADA ENTRANTE -->
+  <!-- MODAL DE INVITACIÓN A LLAMADA ENTRANTE -->
   <div id="incomingCallModal" class="call-overlay">
     <div class="incoming-card">
       <div class="call-pulse">📞</div>
-      <h3 id="callerNameText">Llamada entrante</h3>
-      <p id="callTypeText">Videollamada</p>
+      <h3 id="callerNameText">Llamada grupal</h3>
+      <p id="callTypeText">Un amigo ha iniciado una videollamada</p>
       <div class="incoming-actions">
-        <button id="btnAcceptCall" class="btn success-btn">Aceptar</button>
-        <button id="btnRejectCall" class="btn danger-btn">Rechazar</button>
+        <button id="btnAcceptCall" class="btn success-btn">Unirse</button>
+        <button id="btnRejectCall" class="btn danger-btn">Ignorar</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL DE LLAMADA / VIDEOLLAMADA / PANTALLA ACTIVA -->
+  <!-- PANTALLA DE VIDEOLLAMADA GRUPAL (MOSAICO / GRID) -->
   <div id="activeCallModal" class="call-overlay">
     <div class="video-container">
-      <video id="remoteVideo" autoplay playsinline></video>
-      <video id="localVideo" autoplay muted playsinline class="local-pip"></video>
-      <div id="callStateLabel" class="call-state">Llamando...</div>
+      <div id="videoGrid" class="video-grid">
+        <!-- Los vídeos de todos los amigos se insertan aquí automáticamente -->
+      </div>
 
       <div class="call-dock">
-        <button id="btnToggleMic" class="dock-btn" title="Activar/Silenciar Micrófono">🎤</button>
-        <button id="btnToggleCam" class="dock-btn" title="Activar/Apagar Cámara">📷</button>
-        <button id="btnToggleScreen" class="dock-btn" title="Compartir/Dejar de compartir pantalla">🖥️</button>
-        <button id="btnEndCall" class="dock-btn danger" title="Colgar llamada">🔴</button>
+        <button id="btnToggleMic" class="dock-btn" title="Silenciar Micrófono">🎤</button>
+        <button id="btnToggleCam" class="dock-btn" title="Apagar Cámara">📷</button>
+        <button id="btnToggleScreen" class="dock-btn" title="Compartir Pantalla">🖥️</button>
+        <button id="btnEndCall" class="dock-btn danger" title="Salir de la llamada">🔴</button>
       </div>
     </div>
   </div>
