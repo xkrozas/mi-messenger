@@ -1,13 +1,19 @@
-// --- CONFIGURACIÓN & ESTADO ---
+// --- CONFIGURACIÓN & ESTADO GENERAL ---
 const APP_PREFIX = "fastchat-v2-";
 let peer = null;
 let currentRoomId = null;
 let myUsername = "Anónimo";
 let myColor = "#6366f1";
 let isHost = false;
-let connections = []; // Solo para el Host: lista de clientes
-let hostConnection = null; // Solo para invitados: conexión hacia el Host
+let connections = [];
+let hostConnection = null;
 let typingTimeout = null;
+
+// --- ESTADO DE LLAMADAS P2P ---
+let localStream = null;
+let activeCall = null;
+let incomingCallObj = null;
+let ringtoneInterval = null;
 
 // --- ELEMENTOS DEL DOM ---
 const lobbyScreen = document.getElementById("lobbyScreen");
@@ -23,7 +29,44 @@ const messageInput = document.getElementById("messageInput");
 const typingIndicator = document.getElementById("typingIndicator");
 const imageInput = document.getElementById("imageInput");
 
-// --- SONIDOS NATIVOS (Web Audio API) ---
+// Elementos de llamada
+const incomingCallModal = document.getElementById("incomingCallModal");
+const activeCallModal = document.getElementById("activeCallModal");
+const callerNameText = document.getElementById("callerNameText");
+const callTypeText = document.getElementById("callTypeText");
+const callStateLabel = document.getElementById("callStateLabel");
+const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+const btnToggleMic = document.getElementById("btnToggleMic");
+const btnToggleCam = document.getElementById("btnToggleCam");
+
+// --- GENERADOR DE TONO DE LLAMADA (Web Audio API) ---
+function startRingtone() {
+  stopRingtone();
+  ringtoneInterval = setInterval(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch(e) {}
+  }, 1800);
+}
+
+function stopRingtone() {
+  if (ringtoneInterval) {
+    clearInterval(ringtoneInterval);
+    ringtoneInterval = null;
+  }
+}
+
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -41,7 +84,6 @@ function playNotificationSound() {
   } catch (e) {}
 }
 
-// --- UTILIDADES ---
 function escapeHTML(str) {
   const p = document.createElement("p");
   p.textContent = str;
@@ -53,7 +95,7 @@ function getFormattedTime() {
   return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
 }
 
-// Selección de color de avatar
+// Configuración visual del Lobby
 document.querySelectorAll(".color-opt").forEach(opt => {
   opt.addEventListener("click", () => {
     document.querySelectorAll(".color-opt").forEach(o => o.classList.remove("active"));
@@ -62,7 +104,6 @@ document.querySelectorAll(".color-opt").forEach(opt => {
   });
 });
 
-// Selector de pestañas Crear / Unirse
 const tabCreate = document.getElementById("tabCreate");
 const tabJoin = document.getElementById("tabJoin");
 const createSection = document.getElementById("createSection");
@@ -82,12 +123,10 @@ tabJoin.onclick = () => {
   createSection.classList.remove("active");
 };
 
-// Generador de código aleatorio
 document.getElementById("btnRandomRoom").onclick = () => {
   newRoomId.value = Math.random().toString(36).substring(2, 8);
 };
 
-// Detectar si se abrió con ?room=codigo en la URL
 window.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
   const roomParam = urlParams.get("room");
@@ -102,7 +141,6 @@ window.addEventListener("DOMContentLoaded", () => {
 document.getElementById("btnCreateRoom").onclick = () => {
   const user = usernameInput.value.trim() || "Anfitrión";
   const room = (newRoomId.value.trim() || Math.random().toString(36).substring(2, 8)).toLowerCase();
-  
   startHost(user, room);
 };
 
@@ -112,21 +150,15 @@ function startHost(user, room) {
   isHost = true;
   lobbyStatus.textContent = "Conectando al servidor...";
 
-  // El Host toma un ID fijo derivado del nombre de la sala
-  const peerId = APP_PREFIX + room;
-  peer = new Peer(peerId);
+  peer = new Peer(APP_PREFIX + room);
 
-  peer.on("open", () => {
-    enterChatRoom();
-  });
+  peer.on("open", () => enterChatRoom());
 
   peer.on("connection", (conn) => {
     connections.push(conn);
     updateParticipants();
 
-    conn.on("data", (data) => {
-      handleIncomingData(data, conn);
-    });
+    conn.on("data", (data) => handleIncomingData(data, conn));
 
     conn.on("close", () => {
       connections = connections.filter(c => c !== conn);
@@ -134,6 +166,8 @@ function startHost(user, room) {
       broadcast({ type: "system", text: `${conn.peerName || "Alguien"} salió de la sala.` });
     });
   });
+
+  setupPeerCalling();
 
   peer.on("error", (err) => {
     if (err.type === "unavailable-id") {
@@ -148,12 +182,7 @@ function startHost(user, room) {
 document.getElementById("btnJoinRoom").onclick = () => {
   const user = usernameInput.value.trim() || "Invitado";
   const room = joinRoomId.value.trim().toLowerCase();
-
-  if (!room) {
-    alert("Introduce un código de sala válido.");
-    return;
-  }
-
+  if (!room) return alert("Introduce un código de sala válido.");
   startGuest(user, room);
 };
 
@@ -163,7 +192,6 @@ function startGuest(user, room) {
   isHost = false;
   lobbyStatus.textContent = "Buscando anfitrión de la sala...";
 
-  // El invitado obtiene un ID aleatorio y se conecta al ID del host
   peer = new Peer();
 
   peer.on("open", () => {
@@ -174,29 +202,23 @@ function startGuest(user, room) {
 
     hostConnection.on("open", () => {
       enterChatRoom();
-      // Notificar al anfitrión
-      hostConnection.send({
-        type: "join",
-        user: myUsername,
-        color: myColor
-      });
+      hostConnection.send({ type: "join", user: myUsername, color: myColor });
     });
 
-    hostConnection.on("data", (data) => {
-      handleIncomingData(data);
-    });
+    hostConnection.on("data", (data) => handleIncomingData(data));
 
     hostConnection.on("close", () => {
-      appendSystemMessage("Se perdió la conexión con la sala (anfitrión desconectado).");
+      appendSystemMessage("Se perdió la conexión con el anfitrión.");
     });
   });
 
-  peer.on("error", (err) => {
+  setupPeerCalling();
+
+  peer.on("error", () => {
     lobbyStatus.textContent = "No se pudo conectar a la sala. Comprueba el código.";
   });
 }
 
-// --- PASAR A LA PANTALLA DE CHAT ---
 function enterChatRoom() {
   lobbyScreen.classList.remove("active");
   chatScreen.classList.add("active");
@@ -205,14 +227,13 @@ function enterChatRoom() {
 }
 
 function updateParticipants() {
-  const count = isHost ? connections.length + 1 : 2; // Estimado para clientes
-  participantCount.textContent = `${count} conectado(s)`;
+  const count = isHost ? connections.length + 1 : 2;
+  participantCount.textContent = `${count} participante(s)`;
 }
 
-// --- GESTIÓN DE MENSAJES RECIBIDOS ---
+// --- MENSAJERÍA ---
 function handleIncomingData(data, senderConn = null) {
   if (isHost && senderConn && data.type !== "typing") {
-    // Si somos host, retransmitimos a los demás clientes
     if (data.type === "join") senderConn.peerName = data.user;
     broadcast(data, senderConn);
   }
@@ -239,16 +260,12 @@ function handleIncomingData(data, senderConn = null) {
   }
 }
 
-// Retransmisión solo del Host hacia todos los invitados
 function broadcast(data, exceptConn = null) {
   connections.forEach(conn => {
-    if (conn !== exceptConn && conn.open) {
-      conn.send(data);
-    }
+    if (conn !== exceptConn && conn.open) conn.send(data);
   });
 }
 
-// --- ENVÍO DE MENSAJES Y ARCHIVOS ---
 function sendMessage() {
   const text = messageInput.value.trim();
   if (!text) return;
@@ -263,11 +280,8 @@ function sendMessage() {
 
   appendMessage(myUsername, myColor, text, payload.time, true);
 
-  if (isHost) {
-    broadcast(payload);
-  } else if (hostConnection && hostConnection.open) {
-    hostConnection.send(payload);
-  }
+  if (isHost) broadcast(payload);
+  else if (hostConnection && hostConnection.open) hostConnection.send(payload);
 
   messageInput.value = "";
 }
@@ -278,7 +292,6 @@ messageInput.addEventListener("keydown", (e) => {
   else sendTypingSignal();
 });
 
-// Enviar señal de "escribiendo..."
 function sendTypingSignal() {
   const payload = { type: "typing", user: myUsername };
   if (isHost) broadcast(payload);
@@ -288,12 +301,9 @@ function sendTypingSignal() {
 function showTyping(user) {
   typingIndicator.textContent = `${user} está escribiendo...`;
   clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(() => {
-    typingIndicator.textContent = "";
-  }, 2000);
+  typingTimeout = setTimeout(() => { typingIndicator.textContent = ""; }, 2000);
 }
 
-// Enviar imágenes (máximo ~2MB recomendado para WebRTC fluido)
 imageInput.onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -321,17 +331,14 @@ imageInput.onchange = (e) => {
   reader.readAsDataURL(file);
 };
 
-// --- RENDERIZADO EN EL DOM ---
 function appendMessage(user, color, text, time, isMe) {
   const bubble = document.createElement("div");
   bubble.className = `msg-bubble ${isMe ? 'msg-me' : 'msg-other'}`;
-
   bubble.innerHTML = `
     ${!isMe ? `<div class="msg-author" style="color: ${color}">${escapeHTML(user)}</div>` : ''}
     <div>${escapeHTML(text)}</div>
     <span class="msg-time">${time}</span>
   `;
-
   chatMessages.appendChild(bubble);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -339,13 +346,11 @@ function appendMessage(user, color, text, time, isMe) {
 function appendImage(user, color, dataUrl, time, isMe) {
   const bubble = document.createElement("div");
   bubble.className = `msg-bubble ${isMe ? 'msg-me' : 'msg-other'}`;
-
   bubble.innerHTML = `
     ${!isMe ? `<div class="msg-author" style="color: ${color}">${escapeHTML(user)}</div>` : ''}
     <img src="${dataUrl}" class="msg-image" alt="Imagen enviada">
     <span class="msg-time">${time}</span>
   `;
-
   chatMessages.appendChild(bubble);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -358,16 +363,160 @@ function appendSystemMessage(text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// --- BOTONES SUPERIORES: COMPARTIR Y SALIR ---
+// ==========================================
+// LÓGICA DE AUDIO & VIDEOLLAMADA
+// ==========================================
+
+function setupPeerCalling() {
+  peer.on("call", (call) => {
+    incomingCallObj = call;
+    startRingtone();
+
+    const isVideo = call.metadata?.video !== false;
+    callerNameText.textContent = `${call.metadata?.callerName || "Un amigo"} te está llamando...`;
+    callTypeText.textContent = isVideo ? "📹 Videollamada entrante" : "📞 Llamada de voz entrante";
+
+    incomingCallModal.classList.add("active");
+  });
+}
+
+// Iniciar llamada saliente
+document.getElementById("btnVoiceCall").onclick = () => initiateCall(false);
+document.getElementById("btnVideoCall").onclick = () => initiateCall(true);
+
+async function initiateCall(withVideo) {
+  const targetId = isHost ? connections[0]?.peer : (APP_PREFIX + currentRoomId);
+
+  if (!targetId || (isHost && connections.length === 0)) {
+    alert("Espera a que un amigo se conecte a la sala para poder llamarle.");
+    return;
+  }
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: withVideo ? { width: 1280, height: 720 } : false
+    });
+
+    localVideo.srcObject = localStream;
+    localVideo.style.display = withVideo ? "block" : "none";
+
+    callStateLabel.textContent = "Llamando a tu amigo...";
+    activeCallModal.classList.add("active");
+
+    activeCall = peer.call(targetId, localStream, {
+      metadata: { callerName: myUsername, video: withVideo }
+    });
+
+    setupCallEvents(activeCall);
+
+  } catch (err) {
+    alert("No se pudo acceder a la cámara/micrófono: " + err.message);
+  }
+}
+
+// Aceptar llamada entrante
+document.getElementById("btnAcceptCall").onclick = async () => {
+  stopRingtone();
+  incomingCallModal.classList.remove("active");
+
+  const wantsVideo = incomingCallObj.metadata?.video !== false;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: wantsVideo ? { width: 1280, height: 720 } : false
+    });
+
+    localVideo.srcObject = localStream;
+    localVideo.style.display = wantsVideo ? "block" : "none";
+
+    incomingCallObj.answer(localStream);
+    activeCall = incomingCallObj;
+
+    callStateLabel.textContent = "Conectado";
+    activeCallModal.classList.add("active");
+
+    setupCallEvents(activeCall);
+
+  } catch (err) {
+    alert("Error al acceder a la cámara o micro: " + err.message);
+    incomingCallObj.close();
+  }
+};
+
+// Rechazar llamada entrante
+document.getElementById("btnRejectCall").onclick = () => {
+  stopRingtone();
+  incomingCallModal.classList.remove("active");
+  if (incomingCallObj) incomingCallObj.close();
+};
+
+// Escuchar stream remoto de la llamada
+function setupCallEvents(call) {
+  call.on("stream", (remoteStream) => {
+    callStateLabel.textContent = "Llamada en curso";
+    remoteVideo.srcObject = remoteStream;
+  });
+
+  call.on("close", () => endCall());
+  call.on("error", () => endCall());
+}
+
+// Controles de llamada: Micro y Cámara
+btnToggleMic.onclick = () => {
+  if (!localStream) return;
+  const audioTrack = localStream.getAudioTracks()[0];
+  if (audioTrack) {
+    audioTrack.enabled = !audioTrack.enabled;
+    btnToggleMic.classList.toggle("off", !audioTrack.enabled);
+  }
+};
+
+btnToggleCam.onclick = () => {
+  if (!localStream) return;
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (videoTrack) {
+    videoTrack.enabled = !videoTrack.enabled;
+    btnToggleCam.classList.toggle("off", !videoTrack.enabled);
+    localVideo.style.opacity = videoTrack.enabled ? "1" : "0.2";
+  }
+};
+
+// Colgar llamada
+document.getElementById("btnEndCall").onclick = () => {
+  if (activeCall) activeCall.close();
+  endCall();
+};
+
+function endCall() {
+  stopRingtone();
+  incomingCallModal.classList.remove("active");
+  activeCallModal.classList.remove("active");
+
+  // Apagar la cámara y el micrófono por completo (Hardware off)
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+
+  localVideo.srcObject = null;
+  remoteVideo.srcObject = null;
+  activeCall = null;
+  incomingCallObj = null;
+
+  btnToggleMic.classList.remove("off");
+  btnToggleCam.classList.remove("off");
+}
+
+// Compartir y Salir
 document.getElementById("btnShare").onclick = () => {
   const inviteLink = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
   navigator.clipboard.writeText(inviteLink).then(() => {
-    alert("¡Enlace copiado al portapapeles!\nEnvíalo a tus amigos para que entren directo.");
+    alert("¡Enlace copiado!\nTus amigos entrarán directamente a tu sala al abrirlo.");
   });
 };
 
 document.getElementById("btnLeave").onclick = () => {
-  if (confirm("¿Seguro que deseas salir del chat?")) {
-    location.reload();
-  }
+  if (confirm("¿Deseas salir del chat?")) location.reload();
 };
