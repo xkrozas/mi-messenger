@@ -9,8 +9,10 @@ let connections = [];
 let hostConnection = null;
 let typingTimeout = null;
 
-// --- ESTADO DE LLAMADAS P2P ---
+// --- ESTADO DE LLAMADAS & PANTALLA ---
 let localStream = null;
+let screenStream = null;
+let isScreenSharing = false;
 let activeCall = null;
 let incomingCallObj = null;
 let ringtoneInterval = null;
@@ -39,8 +41,9 @@ const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const btnToggleMic = document.getElementById("btnToggleMic");
 const btnToggleCam = document.getElementById("btnToggleCam");
+const btnToggleScreen = document.getElementById("btnToggleScreen");
 
-// --- GENERADOR DE TONO DE LLAMADA (Web Audio API) ---
+// --- AUDIO NATIVO & TONO DE LLAMADA ---
 function startRingtone() {
   stopRingtone();
   ringtoneInterval = setInterval(() => {
@@ -95,7 +98,7 @@ function getFormattedTime() {
   return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
 }
 
-// Configuración visual del Lobby
+// Configuración Lobby
 document.querySelectorAll(".color-opt").forEach(opt => {
   opt.addEventListener("click", () => {
     document.querySelectorAll(".color-opt").forEach(o => o.classList.remove("active"));
@@ -364,7 +367,7 @@ function appendSystemMessage(text) {
 }
 
 // ==========================================
-// LÓGICA DE AUDIO & VIDEOLLAMADA
+// LÓGICA DE AUDIO, VIDEO & PANTALLA COMPARTIDA
 // ==========================================
 
 function setupPeerCalling() {
@@ -373,18 +376,26 @@ function setupPeerCalling() {
     startRingtone();
 
     const isVideo = call.metadata?.video !== false;
+    const isScreen = call.metadata?.isScreen === true;
+
     callerNameText.textContent = `${call.metadata?.callerName || "Un amigo"} te está llamando...`;
-    callTypeText.textContent = isVideo ? "📹 Videollamada entrante" : "📞 Llamada de voz entrante";
+    
+    if (isScreen) {
+      callTypeText.textContent = "🖥️ Compartiendo pantalla";
+    } else {
+      callTypeText.textContent = isVideo ? "📹 Videollamada entrante" : "📞 Llamada de voz entrante";
+    }
 
     incomingCallModal.classList.add("active");
   });
 }
 
-// Iniciar llamada saliente
-document.getElementById("btnVoiceCall").onclick = () => initiateCall(false);
-document.getElementById("btnVideoCall").onclick = () => initiateCall(true);
+// Botones de llamada en la cabecera
+document.getElementById("btnVoiceCall").onclick = () => initiateCall({ video: false });
+document.getElementById("btnVideoCall").onclick = () => initiateCall({ video: true });
+document.getElementById("btnScreenCall").onclick = () => initiateCall({ video: true, startWithScreen: true });
 
-async function initiateCall(withVideo) {
+async function initiateCall({ video, startWithScreen = false }) {
   const targetId = isHost ? connections[0]?.peer : (APP_PREFIX + currentRoomId);
 
   if (!targetId || (isHost && connections.length === 0)) {
@@ -393,29 +404,52 @@ async function initiateCall(withVideo) {
   }
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: withVideo ? { width: 1280, height: 720 } : false
-    });
+    if (startWithScreen) {
+      // Iniciar directamente compartiendo pantalla
+      screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      localStream = new MediaStream([
+        ...screenStream.getVideoTracks(),
+        ...audioStream.getAudioTracks()
+      ]);
+      
+      isScreenSharing = true;
+      btnToggleScreen.classList.add("active-share");
+      localVideo.classList.add("no-mirror");
+
+      screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+      callStateLabel.textContent = "Compartiendo pantalla...";
+
+    } else {
+      // Iniciar llamada normal de cámara / voz
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: video ? { width: 1280, height: 720 } : false
+      });
+      localVideo.classList.remove("no-mirror");
+      callStateLabel.textContent = "Llamando a tu amigo...";
+    }
 
     localVideo.srcObject = localStream;
-    localVideo.style.display = withVideo ? "block" : "none";
+    localVideo.style.display = video ? "block" : "none";
 
-    callStateLabel.textContent = "Llamando a tu amigo...";
     activeCallModal.classList.add("active");
 
     activeCall = peer.call(targetId, localStream, {
-      metadata: { callerName: myUsername, video: withVideo }
+      metadata: { callerName: myUsername, video: video, isScreen: startWithScreen }
     });
 
     setupCallEvents(activeCall);
 
   } catch (err) {
-    alert("No se pudo acceder a la cámara/micrófono: " + err.message);
+    console.error(err);
+    alert("No se pudo iniciar la llamada: " + err.message);
+    endCall();
   }
 }
 
-// Aceptar llamada entrante
+// Aceptar llamada
 document.getElementById("btnAcceptCall").onclick = async () => {
   stopRingtone();
   incomingCallModal.classList.remove("active");
@@ -428,6 +462,7 @@ document.getElementById("btnAcceptCall").onclick = async () => {
       video: wantsVideo ? { width: 1280, height: 720 } : false
     });
 
+    localVideo.classList.remove("no-mirror");
     localVideo.srcObject = localStream;
     localVideo.style.display = wantsVideo ? "block" : "none";
 
@@ -440,19 +475,17 @@ document.getElementById("btnAcceptCall").onclick = async () => {
     setupCallEvents(activeCall);
 
   } catch (err) {
-    alert("Error al acceder a la cámara o micro: " + err.message);
+    alert("Error al acceder a los dispositivos: " + err.message);
     incomingCallObj.close();
   }
 };
 
-// Rechazar llamada entrante
 document.getElementById("btnRejectCall").onclick = () => {
   stopRingtone();
   incomingCallModal.classList.remove("active");
   if (incomingCallObj) incomingCallObj.close();
 };
 
-// Escuchar stream remoto de la llamada
 function setupCallEvents(call) {
   call.on("stream", (remoteStream) => {
     callStateLabel.textContent = "Llamada en curso";
@@ -463,7 +496,78 @@ function setupCallEvents(call) {
   call.on("error", () => endCall());
 }
 
-// Controles de llamada: Micro y Cámara
+// --- FUNCIÓN CLAVE: COMPARTIR / DEJAR DE COMPARTIR PANTALLA EN VIVO ---
+btnToggleScreen.onclick = async () => {
+  if (!activeCall) return;
+
+  if (isScreenSharing) {
+    // Si ya estamos compartiendo, volvemos a la cámara
+    await stopScreenShare();
+  } else {
+    try {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+
+      // Reemplazamos la pista de vídeo en WebRTC en tiempo real
+      const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+
+      if (sender) {
+        await sender.replaceTrack(screenTrack);
+        isScreenSharing = true;
+        btnToggleScreen.classList.add("active-share");
+
+        // Mostrar pantalla en miniatura sin efecto espejo
+        localVideo.srcObject = screenStream;
+        localVideo.classList.add("no-mirror");
+        localVideo.style.display = "block";
+
+        // Si el usuario hace clic en el cartel "Dejar de compartir" de Chrome/Firefox
+        screenTrack.onended = () => {
+          stopScreenShare();
+        };
+      } else {
+        screenTrack.stop();
+        alert("Para compartir pantalla, debes estar en una videollamada activa.");
+      }
+    } catch (err) {
+      console.log("Pantalla compartida cancelada.");
+    }
+  }
+};
+
+async function stopScreenShare() {
+  if (!isScreenSharing) return;
+
+  if (screenStream) {
+    screenStream.getTracks().forEach(t => t.stop());
+    screenStream = null;
+  }
+
+  isScreenSharing = false;
+  btnToggleScreen.classList.remove("active-share");
+  localVideo.classList.remove("no-mirror");
+
+  // Restaurar la cámara web en el canal P2P
+  try {
+    if (!localStream || localStream.getVideoTracks().length === 0) {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    }
+
+    const camTrack = localStream.getVideoTracks()[0];
+    const sender = activeCall?.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+
+    if (sender && camTrack) {
+      await sender.replaceTrack(camTrack);
+    }
+
+    localVideo.srcObject = localStream;
+    localVideo.style.display = camTrack && camTrack.enabled ? "block" : "none";
+  } catch (e) {
+    console.error("No se pudo restaurar la cámara web:", e);
+  }
+}
+
+// Controles de micrófono y cámara
 btnToggleMic.onclick = () => {
   if (!localStream) return;
   const audioTrack = localStream.getAudioTracks()[0];
@@ -474,7 +578,7 @@ btnToggleMic.onclick = () => {
 };
 
 btnToggleCam.onclick = () => {
-  if (!localStream) return;
+  if (!localStream || isScreenSharing) return; // Si comparte pantalla, la cámara está pausada
   const videoTrack = localStream.getVideoTracks()[0];
   if (videoTrack) {
     videoTrack.enabled = !videoTrack.enabled;
@@ -494,7 +598,15 @@ function endCall() {
   incomingCallModal.classList.remove("active");
   activeCallModal.classList.remove("active");
 
-  // Apagar la cámara y el micrófono por completo (Hardware off)
+  // Apagar pantalla compartida si estuviera activa
+  if (screenStream) {
+    screenStream.getTracks().forEach(t => t.stop());
+    screenStream = null;
+  }
+  isScreenSharing = false;
+  btnToggleScreen.classList.remove("active-share");
+
+  // Apagar cámara y micrófono (hardware apagado)
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
@@ -502,6 +614,7 @@ function endCall() {
 
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
+  localVideo.classList.remove("no-mirror");
   activeCall = null;
   incomingCallObj = null;
 
