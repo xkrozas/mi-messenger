@@ -73,9 +73,10 @@
         </div>
       </div>
       <div class="header-actions">
-        <!-- BOTONES DE LLAMADA -->
+        <!-- BOTONES DE LLAMADA Y PANTALLA -->
         <button id="btnVoiceCall" class="icon-btn call-action-btn" title="Llamada de voz">📞</button>
         <button id="btnVideoCall" class="icon-btn call-action-btn" title="Videollamada">📹</button>
+        <button id="btnScreenCall" class="icon-btn call-action-btn" title="Llamar compartiendo pantalla">🖥️</button>
         
         <button id="btnShare" class="icon-btn" title="Copiar enlace de invitación">🔗 Invitar</button>
         <button id="btnLeave" class="icon-btn danger" title="Salir de la sala">🚪 Salir</button>
@@ -111,7 +112,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE LLAMADA / VIDEOLLAMADA ACTIVA -->
+  <!-- MODAL DE LLAMADA / VIDEOLLAMADA / PANTALLA ACTIVA -->
   <div id="activeCallModal" class="call-overlay">
     <div class="video-container">
       <video id="remoteVideo" autoplay playsinline></video>
@@ -121,6 +122,7 @@
       <div class="call-dock">
         <button id="btnToggleMic" class="dock-btn" title="Activar/Silenciar Micrófono">🎤</button>
         <button id="btnToggleCam" class="dock-btn" title="Activar/Apagar Cámara">📷</button>
+        <button id="btnToggleScreen" class="dock-btn" title="Compartir/Dejar de compartir pantalla">🖥️</button>
         <button id="btnEndCall" class="dock-btn danger" title="Colgar llamada">🔴</button>
       </div>
     </div>
