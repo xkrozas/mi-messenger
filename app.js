@@ -751,3 +751,18 @@ document.getElementById("btnShare").onclick = () => {
 document.getElementById("btnLeave").onclick = () => {
   if (confirm("¿Deseas salir del chat?")) location.reload();
 };
+
+// Ajuste automático para teclado móvil
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    if (chatScreen.classList.contains("active")) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  });
+}
+
+messageInput.addEventListener("focus", () => {
+  setTimeout(() => {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }, 300);
+});
