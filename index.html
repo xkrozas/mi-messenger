@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Messenger P2P</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Librería PeerJS para conexión directa online -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
@@ -40,7 +39,6 @@
         <button id="tabJoin" class="tab-btn">Unirse a Sala</button>
       </div>
 
-      <!-- Formulario Crear Sala -->
       <div id="createSection" class="tab-content active">
         <div class="form-group">
           <label for="newRoomId">Nombre o Código de Sala:</label>
@@ -52,7 +50,6 @@
         <button id="btnCreateRoom" class="btn primary-btn">Crear y Entrar</button>
       </div>
 
-      <!-- Formulario Unirse a Sala -->
       <div id="joinSection" class="tab-content">
         <div class="form-group">
           <label for="joinRoomId">Código de la Sala:</label>
@@ -67,7 +64,6 @@
 
   <!-- PANTALLA 2: CHAT PRINCIPAL -->
   <div id="chatScreen" class="screen">
-    <!-- Barra superior -->
     <header class="chat-header">
       <div class="room-info">
         <span class="status-indicator"></span>
@@ -77,20 +73,21 @@
         </div>
       </div>
       <div class="header-actions">
+        <!-- BOTONES DE LLAMADA -->
+        <button id="btnVoiceCall" class="icon-btn call-action-btn" title="Llamada de voz">📞</button>
+        <button id="btnVideoCall" class="icon-btn call-action-btn" title="Videollamada">📹</button>
+        
         <button id="btnShare" class="icon-btn" title="Copiar enlace de invitación">🔗 Invitar</button>
         <button id="btnLeave" class="icon-btn danger" title="Salir de la sala">🚪 Salir</button>
       </div>
     </header>
 
-    <!-- Contenedor de mensajes -->
     <main id="chatMessages" class="chat-messages">
       <div class="system-bubble">Bienvenido a la sala. Comparte el código o enlace para comenzar.</div>
     </main>
 
-    <!-- Indicador de 'escribiendo...' -->
     <div id="typingIndicator" class="typing-indicator"></div>
 
-    <!-- Barra de envío -->
     <footer class="chat-footer">
       <label class="btn-attach" title="Enviar Imagen">
         📷
@@ -99,6 +96,34 @@
       <input type="text" id="messageInput" placeholder="Escribe un mensaje..." autocomplete="off">
       <button id="btnSend" class="btn-send" title="Enviar">➤</button>
     </footer>
+  </div>
+
+  <!-- MODAL DE LLAMADA ENTRANTE -->
+  <div id="incomingCallModal" class="call-overlay">
+    <div class="incoming-card">
+      <div class="call-pulse">📞</div>
+      <h3 id="callerNameText">Llamada entrante</h3>
+      <p id="callTypeText">Videollamada</p>
+      <div class="incoming-actions">
+        <button id="btnAcceptCall" class="btn success-btn">Aceptar</button>
+        <button id="btnRejectCall" class="btn danger-btn">Rechazar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE LLAMADA / VIDEOLLAMADA ACTIVA -->
+  <div id="activeCallModal" class="call-overlay">
+    <div class="video-container">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="localVideo" autoplay muted playsinline class="local-pip"></video>
+      <div id="callStateLabel" class="call-state">Llamando...</div>
+
+      <div class="call-dock">
+        <button id="btnToggleMic" class="dock-btn" title="Activar/Silenciar Micrófono">🎤</button>
+        <button id="btnToggleCam" class="dock-btn" title="Activar/Apagar Cámara">📷</button>
+        <button id="btnEndCall" class="dock-btn danger" title="Colgar llamada">🔴</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
